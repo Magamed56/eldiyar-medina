@@ -1,0 +1,21 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//baha_toy//KG
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:toy-2026-11-13-eldiyar-medina@magamed56.github.io
+DTSTAMP:20261027T120000Z
+DTSTART:20261113T110000Z
+DTEND:20261113T160000Z
+SUMMARY:Элдияр & Медина — үйлөнүү той
+LOCATION:«Жетиген» рестораны
+DESCRIPTION:Чакыруу: https://magamed56.github.io/eldiyar-medina/
+URL:https://magamed56.github.io/eldiyar-medina/
+BEGIN:VALARM
+TRIGGER:-P1D
+ACTION:DISPLAY
+DESCRIPTION:Эртең той!
+END:VALARM
+END:VEVENT
+END:VCALENDAR
