@@ -33,7 +33,7 @@ window.WEDDING = {
   // 1) Telegram: ответы приходят сами (README: как получить token и chatId)
   telegram: { token: "", chatId: "" },   // для этой пары не используется — ответы только в Google Таблицу
   // 2) Google Таблица (Apps Script из google-apps-script.js, отдельная таблица для этой пары)
-  googleScriptUrl: "",   // ← URL …/exec из новой таблицы этой пары (README)
+  googleScriptUrl: "https://script.google.com/macros/s/AKfycbwJyXZDTTfgX98A_Yp4rXYyZDGVHJbWD4oQuVSisB4su2D3Hv2hfI9gJ9ZpYPqcm6f9xg/exec",
   // 3) WhatsApp номер (өлкө коду менен, сандар гана) — гость сам нажимает «Отправить»
   whatsapp: "",
 
