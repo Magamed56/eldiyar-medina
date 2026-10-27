@@ -43,6 +43,7 @@
       guestsLabel: "Канча адам келесиз?", wishLabel: "Каалоо (милдеттүү эмес)", wishPh: "Жаш үй-бүлөгө бир-эки жылуу сөз…", change: "Жоопту өзгөртүү",
       yourAnswer: "Сиздин жооп", people: "адам", cta: "Жооп берүү",
       kWishes: "Каалоолор", wishesTitle: "Конокторубуздун жылуу сөздөрү", wishHint: "Каалооңуз ушул сайттагы «Каалоолор» бөлүмүндө көрүнөт",
+      views: "Чакырууну {n} адам көрдү",
       labels: { yes: "Келемин", both: "Жубайым менен келемин", no: "Келе албаймын" },
       wa: (g, b) => `Саламатсызбы! ${g} менен ${b} үйлөнүү тоюна жооп 💍`, waName: "Аты-жөнү", waAnswer: "Жооп", calTitle: (g, b) => `${g} & ${b} — үйлөнүү той`,
       months: ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"],
@@ -63,6 +64,7 @@
       guestsLabel: "Сколько человек придёт?", wishLabel: "Пожелание (необязательно)", wishPh: "Пара тёплых слов молодой семье…", change: "Изменить ответ",
       yourAnswer: "Ваш ответ", people: "чел.", cta: "Ответить",
       kWishes: "Пожелания", wishesTitle: "Тёплые слова гостей", wishHint: "Ваше пожелание появится на сайте в разделе «Пожелания»",
+      views: "Приглашение посмотрели: {n}",
       labels: { yes: "Приду", both: "Приду с супругом(ой)", no: "Не смогу" },
       wa: (g, b) => `Здравствуйте! Ответ на приглашение на свадьбу ${g} и ${b} 💍`, waName: "Имя", waAnswer: "Ответ", calTitle: (g, b) => `${g} & ${b} — свадьба`,
       months: ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"],
@@ -450,6 +452,7 @@
   function openInvite() {
     if (intro.classList.contains("is-open")) return;
     intro.classList.add("is-open");
+    if (!store.get("seen")) countView(true);
     play();
     playOnNextGesture(); // свайп/колесо не считаются нажатием — страхуемся следующим касанием
     const r = ($(".seal__disc") || $("#open-btn")).getBoundingClientRect();
@@ -479,20 +482,22 @@
     wishesBox.innerHTML = wishes.map((w) => `<figure class="wish"><svg class="wish__q" aria-hidden="true"><use href="#i-quote"/></svg><blockquote>${esc(w.wish)}</blockquote><figcaption>${esc(w.name)}</figcaption></figure>`).join("");
     wishesBox.scrollLeft = 0;
   }
-  // JSONP: Apps Script отдаёт пожелания как вызов функции — работает в любом браузере, без CORS
+  // JSONP: Apps Script отдаёт данные как вызов функции — работает в любом браузере, без CORS
+  function jsonp(query, onData) {
+    const cb = `__toy${Date.now()}${Math.random().toString(36).slice(2, 7)}`, s = document.createElement("script");
+    const done = () => { delete window[cb]; s.remove(); };
+    window[cb] = (data) => { done(); onData(data || {}); };
+    s.onerror = done;
+    s.src = `${CFG.googleScriptUrl}${CFG.googleScriptUrl.includes("?") ? "&" : "?"}${query}&callback=${cb}`;
+    document.head.appendChild(s);
+  }
   function loadWishes() {
     if (!wishesSec || !CFG.googleScriptUrl) return;
-    const cb = `__wishes${Date.now()}`, s = document.createElement("script");
-    const done = () => { delete window[cb]; s.remove(); };
-    window[cb] = (data) => {
-      done();
+    jsonp("action=wishes", (data) => {
       const mine = wishes.filter((w) => w.mine);
-      wishes = mine.concat(((data && data.wishes) || []).filter((w) => w && w.wish && !mine.some((m) => m.name === w.name)));
+      wishes = mine.concat((data.wishes || []).filter((w) => w && w.wish && !mine.some((m) => m.name === w.name)));
       renderWishes();
-    };
-    s.onerror = done;
-    s.src = `${CFG.googleScriptUrl}${CFG.googleScriptUrl.includes("?") ? "&" : "?"}action=wishes&callback=${cb}`;
-    document.head.appendChild(s);
+    });
   }
   // Гостьтун өз каалоосу дароо көрүнөт / Своё пожелание гость видит сразу после отправки
   function addOwnWish(prevName, name, wish) {
@@ -514,6 +519,25 @@
     }, 4800);
   }
   loadWishes();
+
+  /* ---------- Канча адам көрдү / Счётчик просмотров (в Google Таблице; один телефон — один раз) ---------- */
+  // Считаются все, кто открыл приглашение (нажал на обложку), — и ответившие, и нет.
+  const viewsEl = $("#views");
+  function renderViews() {
+    if (!viewsEl) return;
+    const n = Number(viewsEl.dataset.n) || 0;
+    viewsEl.hidden = !n;
+    if (n) $("span", viewsEl).textContent = t("views").replace("{n}", n);
+  }
+  function countView(add) {
+    if (!viewsEl || !CFG.googleScriptUrl) return;
+    jsonp(`action=views&add=${add ? 1 : 0}`, (data) => {
+      if (add) store.set("seen", "1");
+      // ответы могут прийти не по порядку — показываем большее число
+      if (data.views) { viewsEl.dataset.n = Math.max(Number(viewsEl.dataset.n) || 0, Number(data.views) || 0); renderViews(); }
+    });
+  }
+  countView(false);
 
   /* ---------- Суроо (RSVP) ---------- */
   function recordSheet(payload) {
@@ -635,7 +659,7 @@
     $$("[data-i18n-html]").forEach((el) => { el.innerHTML = t(el.dataset.i18nHtml); });
     $$("#lang button").forEach((b) => b.classList.toggle("is-active", b.dataset.lang === lang));
     if (first) return;
-    renderAll();
+    renderAll(); renderViews();
     if (!$("#rsvp-success").hidden) renderSuccess(lastAnswer);
     if (body.classList.contains("opened")) $$(".reveal.in").forEach((r) => { r.classList.remove("in"); void r.offsetWidth; r.classList.add("in"); });
   }

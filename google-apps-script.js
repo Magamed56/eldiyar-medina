@@ -12,10 +12,11 @@
  *
  * Колонка «Сайтта» — галочка: показывать пожелание на сайте. Снимите её, чтобы скрыть пожелание.
  * Если гость меняет ответ, его строка обновляется (а не добавляется новая) — итоги считаются верно.
+ * «Сайтты көрдү» (справа под итогами) — сколько человек открыли приглашение: один телефон считается один раз.
  *
  * Код өзгөртүлсө / После изменения кода: Развернуть → Управление развёртываниями → ✏️ → Версия: Новая версия → Развернуть.
  */
-var VERSION = "3";            // ?action=version — проверка, что развёрнута новая версия
+var VERSION = "4";            // ?action=version — проверка, что развёрнута новая версия
 var SHEET_NAME = "Жооптор";
 // ID таблицы из её ссылки docs.google.com/spreadsheets/d/<ID>/edit — нужен, только если скрипт создан не из таблицы
 var SPREADSHEET_ID = "";
@@ -23,6 +24,7 @@ var SPREADSHEET_ID = "";
 var HEADERS = ["Убакыт", "Аты-жөнү", "Жооп", "Адам саны", "Каалоо", "Сайтта"];
 var COL = { time: 1, name: 2, answer: 3, guests: 4, wish: 5, show: 6 };
 var TOTALS_COL = 8; // H–I: итоги
+var VIEWS_ROW = 4;  // под итогами: «Сайтты көрдү»
 
 function doPost(e) {
   var lock = LockService.getScriptLock();
@@ -39,18 +41,46 @@ function doPost(e) {
   }
 }
 
-/** ?action=wishes&callback=fn — пожелания для сайта (JSONP); без параметров — проверка, что скрипт работает. */
+/**
+ * ?action=wishes&callback=fn — пожелания для сайта (JSONP);
+ * ?action=views&add=1&callback=fn — счётчик просмотров (add=1 — новый гость, +1); без параметров — проверка, что скрипт работает.
+ */
 function doGet(e) {
   var p = (e && e.parameter) || {};
   if (p.action === "version") return ContentService.createTextOutput("version " + VERSION).setMimeType(ContentService.MimeType.TEXT);
-  if (p.action !== "wishes") return ContentService.createTextOutput("RSVP backend иштеп жатат ✔").setMimeType(ContentService.MimeType.TEXT);
-  var out = { wishes: getWishes(60) };
+  if (p.action === "wishes") return jsonp(p, { wishes: getWishes(60) });
+  if (p.action === "views") return jsonp(p, { views: p.add === "1" ? addView() : getViews() });
+  return ContentService.createTextOutput("RSVP backend иштеп жатат ✔").setMimeType(ContentService.MimeType.TEXT);
+}
+
+function json(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+
+/** Сайт үчүн JSONP / Ответ для сайта: вызов функции callback(...), без CORS. */
+function jsonp(p, out) {
   var cb = String(p.callback || "").replace(/[^\w$.]/g, "");
   if (cb) return ContentService.createTextOutput(cb + "(" + JSON.stringify(out) + ");").setMimeType(ContentService.MimeType.JAVASCRIPT);
   return json(out);
 }
 
-function json(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+/** Канча адам көрдү / Просмотры: число хранится в свойствах скрипта и дублируется в таблицу под итогами. */
+function getViews() {
+  return Number(PropertiesService.getScriptProperties().getProperty("views")) || 0;
+}
+
+function addView() {
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    var n = getViews() + 1;
+    PropertiesService.getScriptProperties().setProperty("views", String(n));
+    getOrCreateSheet().getRange(VIEWS_ROW, TOTALS_COL + 1).setValue(n);
+    return n;
+  } catch (err) {
+    return getViews();
+  } finally {
+    lock.releaseLock();
+  }
+}
 
 /** Текшерүү / Проверка: выберите эту функцию и нажмите «Выполнить» — появится тестовая строка (потом удалите её). */
 function testAppend() {
@@ -66,8 +96,9 @@ function setupSheet() {
   sheet.setColumnWidth(COL.guests, 90); sheet.setColumnWidth(COL.wish, 340); sheet.setColumnWidth(COL.show, 70);
   sheet.getRange(1, COL.wish, sheet.getMaxRows(), 1).setWrap(true);
   sheet.setFrozenRows(1);
-  sheet.getRange(1, TOTALS_COL, 3, 1).setValues([["Келет (жооп)"], ["Келбейт"], ["Адам саны"]]).setFontWeight("bold");
+  sheet.getRange(1, TOTALS_COL, VIEWS_ROW, 1).setValues([["Келет (жооп)"], ["Келбейт"], ["Адам саны"], ["Сайтты көрдү"]]).setFontWeight("bold");
   sheet.setColumnWidth(TOTALS_COL, 120);
+  sheet.getRange(VIEWS_ROW, TOTALS_COL + 1).setValue(getViews());
   updateTotals(sheet);
   // Итоги пересчитываются и при ручных правках/удалении строк (триггер «При изменении»), ставится один раз
   var ss = sheet.getParent();
