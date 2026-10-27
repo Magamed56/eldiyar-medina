@@ -31,7 +31,7 @@ window.WEDDING = {
 
   // Жооптор кайда келет / Куда приходят ответы гостей (проверяется по порядку)
   // 1) Telegram: ответы приходят сами (README: как получить token и chatId)
-  telegram: { token: "", chatId: "" },   // ← token бота и chatId канала/группы этой пары (README)
+  telegram: { token: "", chatId: "" },   // для этой пары не используется — ответы только в Google Таблицу
   // 2) Google Таблица (Apps Script из google-apps-script.js, отдельная таблица для этой пары)
   googleScriptUrl: "",   // ← URL …/exec из новой таблицы этой пары (README)
   // 3) WhatsApp номер (өлкө коду менен, сандар гана) — гость сам нажимает «Отправить»
